@@ -3,7 +3,8 @@ import StagehandConfig from "./stagehand.config.js";
 import chalk from "chalk";
 import boxen from "boxen";
 import { drawObserveOverlay, clearOverlays, actWithCache } from "./utils.js";
-import { z } from "zod";
+import { z, AnyZodObject } from 'zod';
+
 
 /**
  * 🤘 Welcome to Stagehand! Thanks so much for trying us out!
@@ -29,43 +30,100 @@ async function main({
   context: BrowserContext; // Playwright BrowserContext
   stagehand: Stagehand; // Stagehand instance
 }) {
-  //https://ix0.apps.td.com/mortgage-affordability-calculator/
-  // Navigate to a URL
+  // Navigate to the calculator
   await page.goto("https://ix0.apps.td.com/mortgage-affordability-calculator/");
+  await page.waitForTimeout(2000); // Wait for page to load
 
-  // Use act() to take actions on the page
-  await page.act("Enter Waterloo,ON, Canada as location to live in");
+  // Step 1: Location
+  const locationInputSelector = '//*[@id="municipality"]';
 
-  // Use actWithCache for the next button to avoid repeated inference
-  await actWithCache(page, "Click the next button");
+  // Click the location input and type into it
+  await actWithCache(page, "Click the location input field");
+  await actWithCache(page, "Type 'Waterloo, ON, Canada' into the location input field");
+  
+  // Wait for suggestions and click the first one
+  await page.waitForSelector('.pac-container');
+  await page.locator('.pac-container').locator('text=Waterloo, ON, Canada').first().click();
+  
+  // Click next
+  await page.getByRole('button', { name: 'Next' }).click();
 
-  // For more on caching, check out our docs: https://docs.stagehand.dev/examples/caching
-  await page.waitForTimeout(1_000);
-  // await actWithCache(page, "Click the suggestion to use AI");
-  // await page.waitForTimeout(5_000);
+  // Step 2: Property Type
+  await actWithCache(page, "Click on House");
+  await page.getByRole('button', { name: 'Next' }).click();
 
-  // // Use extract() to extract structured data from the page
-  // const text = await page.extract("extract the text of the AI suggestion from the search results");
-  // stagehand.log({
-  //   category: "create-browser-app",
-  //   message: `Got AI Suggestion`,
-  //   auxiliary: {
-  //     text: {
-  //       value: text.extraction || "",
-  //       type: "string",
-  //     },
-  //   },
-  // });
-  // stagehand.log({
-  //   category: "create-browser-app",
-  //   message: `Metrics`,
-  //   auxiliary: {
-  //     metrics: {
-  //       value: JSON.stringify(stagehand.metrics),
-  //       type: "object",
-  //     },
-  //   },
-  // });
+  // Step 3: Annual Income
+  await actWithCache(page, "Click the annual income input field");
+  await actWithCache(page, "Type '120000' into the annual income field");
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Step 4: Down Payment
+  await actWithCache(page, "Click the down payment input field");
+  await actWithCache(page, "Type '50000' into the down payment field");
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Step 5: Monthly Expenses
+  await actWithCache(page, "Click the monthly expenses input field");
+  await actWithCache(page, "Type '2000' into the monthly expenses field");
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Step 6: Monthly Debt Payments
+  await actWithCache(page, "Click the monthly debt payments input field");
+  await actWithCache(page, "Type '500' into the monthly debt payments field");
+  await page.getByRole('button', { name: 'See your results' }).click();
+
+  // Wait for results to load
+  await page.waitForSelector('text=Maximum home price you can afford');
+
+  // Extract all results with proper schema
+  const mortgageResults = await page.extract({
+    instruction: "Extract ALL mortgage calculation results including maximum price, purchase price, monthly payment, other costs, remaining cash, credit protection, and interest rate",
+    schema: z.object({
+      maxPrice: z.string(),
+      purchasePrice: z.string(),
+      monthlyPayment: z.string(),
+      otherHousingCosts: z.string(),
+      remainingCash: z.string(),
+      optionalCP: z.string(),
+      rate: z.string(),
+    }),
+  });
+
+  // Log the results
+  stagehand.log({
+    category: "mortgage-calculator",
+    message: "Mortgage Affordability Results",
+    auxiliary: {
+      maxPrice: {
+        value: mortgageResults.maxPrice || "",
+        type: "string",
+      },
+      purchasePrice: {
+        value: mortgageResults.purchasePrice || "",
+        type: "string",
+      },
+      monthlyPayment: {
+        value: mortgageResults.monthlyPayment || "",
+        type: "string",
+      },
+      otherHousingCosts: {
+        value: mortgageResults.otherHousingCosts || "",
+        type: "string",
+      },
+      remainingCash: {
+        value: mortgageResults.remainingCash || "",
+        type: "string",
+      },
+      optionalCP: {
+        value: mortgageResults.optionalCP || "",
+        type: "string",
+      },
+      rate: {
+        value: mortgageResults.rate || "",
+        type: "string",
+      },
+    },
+  });
 }
 
 /**
