@@ -29,48 +29,43 @@ async function main({
   context: BrowserContext; // Playwright BrowserContext
   stagehand: Stagehand; // Stagehand instance
 }) {
+  //https://ix0.apps.td.com/mortgage-affordability-calculator/
   // Navigate to a URL
-  await page.goto("https://docs.stagehand.dev/reference/introduction");
+  await page.goto("https://ix0.apps.td.com/mortgage-affordability-calculator/");
 
   // Use act() to take actions on the page
-  await page.act("Click the search box");
+  await page.act("Enter Waterloo,ON, Canada as location to live in");
 
-  // Use observe() to plan an action before doing it
-  const [action] = await page.observe(
-    "Type 'Tell me in one sentence why I should use Stagehand' into the search box",
-  );
-  await drawObserveOverlay(page, [action]); // Highlight the search box
-  await page.waitForTimeout(1_000);
-  await clearOverlays(page); // Remove the highlight before typing
-  await page.act(action); // Take the action
+  // Use actWithCache for the next button to avoid repeated inference
+  await actWithCache(page, "Click the next button");
 
   // For more on caching, check out our docs: https://docs.stagehand.dev/examples/caching
   await page.waitForTimeout(1_000);
-  await actWithCache(page, "Click the suggestion to use AI");
-  await page.waitForTimeout(5_000);
+  // await actWithCache(page, "Click the suggestion to use AI");
+  // await page.waitForTimeout(5_000);
 
-  // Use extract() to extract structured data from the page
-  const text = await page.extract("extract the text of the AI suggestion from the search results");
-  stagehand.log({
-    category: "create-browser-app",
-    message: `Got AI Suggestion`,
-    auxiliary: {
-      text: {
-        value: text.extraction || "",
-        type: "string",
-      },
-    },
-  });
-  stagehand.log({
-    category: "create-browser-app",
-    message: `Metrics`,
-    auxiliary: {
-      metrics: {
-        value: JSON.stringify(stagehand.metrics),
-        type: "object",
-      },
-    },
-  });
+  // // Use extract() to extract structured data from the page
+  // const text = await page.extract("extract the text of the AI suggestion from the search results");
+  // stagehand.log({
+  //   category: "create-browser-app",
+  //   message: `Got AI Suggestion`,
+  //   auxiliary: {
+  //     text: {
+  //       value: text.extraction || "",
+  //       type: "string",
+  //     },
+  //   },
+  // });
+  // stagehand.log({
+  //   category: "create-browser-app",
+  //   message: `Metrics`,
+  //   auxiliary: {
+  //     metrics: {
+  //       value: JSON.stringify(stagehand.metrics),
+  //       type: "object",
+  //     },
+  //   },
+  // });
 }
 
 /**
