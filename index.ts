@@ -3,7 +3,7 @@ import StagehandConfig from "./stagehand.config.js";
 import chalk from "chalk";
 import boxen from "boxen";
 import { drawObserveOverlay, clearOverlays, actWithCache } from "./utils.js";
-import { z, AnyZodObject } from 'zod';
+import { z } from 'zod';
 
 
 /**
@@ -38,8 +38,8 @@ async function main({
   const locationInputSelector = '//*[@id="municipality"]';
 
   // Click the location input and type into it
-  await actWithCache(page, "Click the location input field");
-  await actWithCache(page, "Type 'Waterloo, ON, Canada' into the location input field");
+  await page.act("Click the location input field");
+  await page.act("Type 'Waterloo, ON, Canada' into the location input field");
   
   // Wait for suggestions and click the first one
   await page.waitForSelector('.pac-container');
@@ -49,45 +49,56 @@ async function main({
   await page.getByRole('button', { name: 'Next' }).click();
 
   // Step 2: Property Type
-  await actWithCache(page, "Click on House");
+  await page.act("Click on House");
   await page.getByRole('button', { name: 'Next' }).click();
 
   // Step 3: Annual Income
-  await actWithCache(page, "Click the annual income input field");
-  await actWithCache(page, "Type '120000' into the annual income field");
+  await page.act("Click the annual income input field");
+  await page.act("Type '120000' into the annual income field");
   await page.getByRole('button', { name: 'Next' }).click();
 
   // Step 4: Down Payment
-  await actWithCache(page, "Click the down payment input field");
-  await actWithCache(page, "Type '50000' into the down payment field");
+  await page.act("Click the down payment input field");
+  await page.act("Type '50000' into the down payment field");
   await page.getByRole('button', { name: 'Next' }).click();
 
   // Step 5: Monthly Expenses
-  await actWithCache(page, "Click the monthly expenses input field");
-  await actWithCache(page, "Type '2000' into the monthly expenses field");
+  await page.act("Click the monthly expenses input field");
+  await page.act("Type '2000' into the monthly expenses field");
   await page.getByRole('button', { name: 'Next' }).click();
 
   // Step 6: Monthly Debt Payments
-  await actWithCache(page, "Click the monthly debt payments input field");
-  await actWithCache(page, "Type '500' into the monthly debt payments field");
+  await page.act("Click the monthly debt payments input field");
+  await page.act("Type '500' into the monthly debt payments field");
   await page.getByRole('button', { name: 'See your results' }).click();
 
-  // Wait for results to load
-  await page.waitForSelector('text=Maximum home price you can afford');
+  // After clicking "See your results"
+  await page.waitForTimeout(5000); // Wait 5 seconds for results to load
 
-  // Extract all results with proper schema
-  const mortgageResults = await page.extract({
-    instruction: "Extract ALL mortgage calculation results including maximum price, purchase price, monthly payment, other costs, remaining cash, credit protection, and interest rate",
-    schema: z.object({
-      maxPrice: z.string(),
-      purchasePrice: z.string(),
-      monthlyPayment: z.string(),
-      otherHousingCosts: z.string(),
-      remainingCash: z.string(),
-      optionalCP: z.string(),
-      rate: z.string(),
-    }),
+  // Log what's on the page to see what we're actually getting
+  const pageContent = await page.content();
+  console.log("Page content:", pageContent);
+
+  // Try a more general selector first
+  await page.waitForSelector('.results-container, .mortgage-results, [class*="result"]', { timeout: 60000 });
+
+  // Define the result schema
+  const resultSchema = z.object({
+    maxPrice: z.string(),
+    purchasePrice: z.string(),
+    monthlyPayment: z.string(),
+    otherHousingCosts: z.string(),
+    remainingCash: z.string(),
+    optionalCP: z.string(),
+    rate: z.string(),
   });
+  // Then try to extract the data
+  const mortgageResults = await page.extract({
+    instruction: "Find and extract the following values from the results page: 1) Maximum home price (look for text containing 'Maximum home price'), 2) Purchase price (look for text containing 'Purchase price'), 3) Monthly payment (look for text containing 'Monthly payment'), 4) Other housing costs (look for text containing 'Other housing costs'), 5) Remaining cash (look for text containing 'Remaining cash'), 6) Credit protection (look for text containing 'Credit protection'), 7) Interest rate (look for text containing 'Interest rate')",
+    schema: resultSchema as any,
+  }) as z.infer<typeof resultSchema>;
+
+  console.log("Extracted results:", mortgageResults);
 
   // Log the results
   stagehand.log({
